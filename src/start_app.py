@@ -11,6 +11,9 @@ from bot_middleware import Middleware
 from bot_callback_filter import BotCallbackCustomFilter
 from bot_func_abc import AtomicBotFunctionABC
 from functions.defoult_bot_function import DefoultBotFunction
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class StartApp():
     """Configuring and running the application"""
@@ -94,3 +97,8 @@ class StartApp():
 
         defouit_function = DefoultBotFunction(start_comannds, functions_list)
         defouit_function.set_handlers(self.bot)
+        
+if __name__ == "__main__":
+    start_commands = ["/start", "/help"]
+    app = StartApp(start_commands)
+    app.start_polling()        

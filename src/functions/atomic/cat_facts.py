@@ -15,9 +15,11 @@ class CatFactsFunction(AtomicBotFunctionABC):
     """Интеграция с API случайных фактов про кошек."""
     commands: List[str] = ["catfacts"]
     authors: List[str] = ["Bolbesx"]
-    about: str = "Случайные факты о кошках (Cat Facts API)"
+    about: str = "Факты о кошках"
     description: str = (
-        "/catfacts [число] — получить один или несколько случайных фактов о кошках"
+        "/catfacts [число] — получить от 1 до 10 случайных фактов о кошках. "
+        "Если число не указано, будет показан 1 факт. "
+        "Факты получаются из внешнего API Cat Facts."
     )
     state: bool = True
 
@@ -30,7 +32,7 @@ class CatFactsFunction(AtomicBotFunctionABC):
         """Устанавливает обработчики команд и callback'ов."""
         self.bot = bot
 
-        @bot.message_handler(commands=['catfacts'])
+        @bot.message_handler(commands=self.commands)
         def handle_catfacts(message: types.Message):
             try:
                 parts = message.text.strip().split()

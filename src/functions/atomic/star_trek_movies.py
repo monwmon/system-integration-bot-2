@@ -142,7 +142,7 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
             markup.add(types.InlineKeyboardButton("➡️ Вперед", callback_data=f"page_{page+1}"))
 
         if edit_message and message_id:
-            self.bot.edit_message_text(text, chat_id=chat_id, 
+            self.bot.edit_message_text(text, chat_id=chat_id,
                                        message_id=message_id, reply_markup=markup)
         else:
             self.bot.send_message(chat_id, text, reply_markup=markup)

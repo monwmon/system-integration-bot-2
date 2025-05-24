@@ -101,8 +101,14 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
 
         text = "🎬 Фильмы Star Trek:\n\n"
         for movie in movies:
-            director = movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'
-            text += f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. {director}\n"
+            director = (
+                movie['mainDirector']['name']
+                if movie.get('mainDirector') else 'N/A'
+            )
+            text += (
+                f"• {movie.get('title', 'N/A')} "
+                f"({movie.get('yearFrom', 'N/A')}), реж. {director}\n"
+            )
 
         self.bot.send_message(chat_id, text)
 

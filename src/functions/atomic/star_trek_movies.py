@@ -27,11 +27,10 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
     )
     state: bool = True
 
-    PAGE_SIZE = 5  # Константа для размера страницы
+    PAGE_SIZE = 5
 
     bot: telebot.TeleBot
     movie_keyboard_factory: CallbackData
-
     pagination_data = {}
 
     def set_handlers(self, bot: telebot.TeleBot):
@@ -52,41 +51,45 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
         def movie_callback(call: types.CallbackQuery):
             callback_data: dict = self.movie_keyboard_factory.parse(call.data)
             action = callback_data['movie_action']
+            chat_id = call.message.chat.id
 
             if action == 'list':
                 movies = self.__fetch_movies()
                 if not movies:
-                    bot.send_message(call.message.chat.id, "Фильмы не найдены.")
+                    bot.send_message(chat_id, "Фильмы не найдены.")
                     bot.answer_callback_query(call.id)
                     return
-                self.pagination_data[call.message.chat.id] = {"movies": movies, "page": 0}
-                self.__send_movies_page(chat_id=call.message.chat.id, page=0)
+                self.pagination_data[chat_id] = {"movies": movies, "page": 0}
+                self.__send_movies_page(chat_id=chat_id, page=0)
+
             elif action == 'info':
                 force_reply = types.ForceReply(selective=False)
                 msg = bot.send_message(
-                    call.message.chat.id,
+                    chat_id,
                     "Введите название фильма Star Trek:",
                     reply_markup=force_reply
                 )
                 bot.register_next_step_handler(msg, self.__process_movie_input)
-            bot.answer_callback_query(call.id)
 
-        @bot.callback_query_handler(func=lambda call: call.data.startswith('page_'))
-        def pagination_callback(call: types.CallbackQuery):
-            page = int(call.data.split('_')[1])
-            chat_id = call.message.chat.id
+            elif action.startswith("page_"):
+                try:
+                    page = int(action.split("_")[1])
+                except ValueError:
+                    bot.answer_callback_query(call.id, "Неверный номер страницы.")
+                    return
 
-            if chat_id not in self.pagination_data:
-                bot.answer_callback_query(call.id, "Данные устарели, повторите запрос.")
-                return
+                if chat_id not in self.pagination_data:
+                    bot.answer_callback_query(call.id, "Данные устарели, повторите запрос.")
+                    return
 
-            self.pagination_data[chat_id]["page"] = page
-            self.__send_movies_page(
-                chat_id=chat_id,
-                page=page,
-                edit_message=True,
-                message_id=call.message.message_id
-            )
+                self.pagination_data[chat_id]["page"] = page
+                self.__send_movies_page(
+                    chat_id=chat_id,
+                    page=page,
+                    edit_message=True,
+                    message_id=call.message.message_id
+                )
+
             bot.answer_callback_query(call.id)
 
     def __gen_markup(self):
@@ -121,8 +124,8 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
         message_id: int = None
     ):
         """Отправка страницы фильмов"""
-        page_size = self.PAGE_SIZE
         movies = self.pagination_data[chat_id]["movies"]
+        page_size = self.PAGE_SIZE
         total = len(movies)
         start = page * page_size
         end = start + page_size
@@ -139,13 +142,14 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
 
         markup = types.InlineKeyboardMarkup(row_width=2)
         if page > 0:
-            markup.add(types.InlineKeyboardButton("⬅️ Назад", callback_data=f"page_{page-1}"))
+            back_data = self.movie_keyboard_factory.new(movie_action=f"page_{page - 1}")
+            markup.add(types.InlineKeyboardButton("⬅️ Назад", callback_data=back_data))
         if end < total:
-            markup.add(types.InlineKeyboardButton("➡️ Вперед", callback_data=f"page_{page+1}"))
+            next_data = self.movie_keyboard_factory.new(movie_action=f"page_{page + 1}")
+            markup.add(types.InlineKeyboardButton("➡️ Вперёд", callback_data=next_data))
 
         if edit_message and message_id:
-            self.bot.edit_message_text(text, chat_id=chat_id,
-                                       message_id=message_id, reply_markup=markup)
+            self.bot.edit_message_text(text, chat_id=chat_id, message_id=message_id, reply_markup=markup)
         else:
             self.bot.send_message(chat_id, text, reply_markup=markup)
 
@@ -156,10 +160,8 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
             return "Фильмы не найдены."
 
         film_list = "\n".join([
-            (
-                f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. "
-                f"{movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'}"
-            )
+            f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. "
+            f"{movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'}"
             for movie in movies
         ])
         return f"🎬 Фильмы Star Trek:\n{film_list}\n\n(Всего: {len(movies)})"
@@ -202,13 +204,14 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
 
             director = movie.get('mainDirector')
             if director and director.get('name'):
-                lines.append(f"Режиссер: {director['name']}")
+                lines.append(f"Режиссёр: {director['name']}")
 
             if movie.get('usReleaseDate'):
                 readable_date = self.__format_date(movie['usReleaseDate'])
                 lines.append(f"Дата выхода в США: {readable_date}")
 
             return "\n".join(lines)
+
         except requests.exceptions.RequestException as e:
             logging.error("Star Trek info error: %s", e)
             return "⚠️ Ошибка при получении информации о фильме."

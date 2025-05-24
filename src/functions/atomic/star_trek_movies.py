@@ -27,6 +27,8 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
     )
     state: bool = True
 
+    PAGE_SIZE = 5  # Константа для размера страницы
+
     bot: telebot.TeleBot
     movie_keyboard_factory: CallbackData
 
@@ -115,11 +117,11 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
         chat_id: int,
         page: int,
         *,
-        page_size: int = 5,
         edit_message: bool = False,
         message_id: int = None
     ):
         """Отправка страницы фильмов"""
+        page_size = self.PAGE_SIZE
         movies = self.pagination_data[chat_id]["movies"]
         total = len(movies)
         start = page * page_size

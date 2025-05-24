@@ -58,7 +58,7 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
                     bot.answer_callback_query(call.id)
                     return
                 self.pagination_data[call.message.chat.id] = {"movies": movies, "page": 0}
-                self.__send_movies_page(call.message.chat.id, 0)
+                self.__send_movies_page(chat_id=call.message.chat.id, page=0)
             elif action == 'info':
                 force_reply = types.ForceReply(selective=False)
                 msg = bot.send_message(
@@ -80,7 +80,8 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
 
             self.pagination_data[chat_id]["page"] = page
             self.__send_movies_page(
-                chat_id, page,
+                chat_id=chat_id,
+                page=page,
                 edit_message=True,
                 message_id=call.message.message_id
             )

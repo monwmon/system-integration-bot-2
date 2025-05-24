@@ -152,11 +152,21 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
             return "Фильмы не найдены."
 
         film_list = "\n".join([
-            f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. "
-            f"{movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'}"
+            (
+                f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. "
+                f"{movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'}"
+            )
             for movie in movies
         ])
         return f"🎬 Фильмы Star Trek:\n{film_list}\n\n(Всего: {len(movies)})"
+
+    def __format_date(self, date_str: str) -> str:
+        """Преобразует дату YYYY-MM-DD в читаемый формат."""
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            return dt.strftime("%-d %B %Y")
+        except ValueError:
+            return date_str
 
     def get_movie_info(self, title: str) -> str:
         """Получение подробной информации о фильме по названию."""
@@ -191,11 +201,7 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
 
             us_release = movie.get('usReleaseDate')
             if us_release:
-                try:
-                    dt = datetime.strptime(us_release, "%Y-%m-%d")
-                    readable_date = dt.strftime("%-d %B %Y")
-                except ValueError:
-                    readable_date = us_release
+                readable_date = self.__format_date(us_release)
                 lines.append(f"Дата выхода в США: {readable_date}")
 
             return "\n".join(lines)
@@ -209,7 +215,7 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
             movie_title = message.text.strip()
             info = self.get_movie_info(movie_title)
             self.bot.send_message(chat_id=message.chat.id, text=info)
-        except Exception as e:
+        except (ValueError, AttributeError, TypeError) as e:
             logging.error("Processing error: %s", e)
             self.bot.send_message(
                 chat_id=message.chat.id,

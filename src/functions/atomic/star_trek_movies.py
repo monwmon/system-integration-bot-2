@@ -183,25 +183,25 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
             if not movies:
                 return f"❌ Фильм '{title_clean}' не найден."
 
-            movie = next((m for m in movies if m.get('title', '').lower() == title_clean.lower()), movies[0])
+            movie = next(
+                (m for m in movies if m.get('title', '').lower() == title_clean.lower()),
+                movies[0]
+            )
 
             lines = [f"🎬 {movie.get('title', 'N/A')}"]
 
-            year_from = movie.get('yearFrom')
-            year_to = movie.get('yearTo')
-            if year_from or year_to:
-                years = f"{year_from or ''}"
-                if year_to and year_to != year_from:
-                    years += f" - {year_to}"
+            if movie.get('yearFrom') or movie.get('yearTo'):
+                years = f"{movie.get('yearFrom') or ''}"
+                if movie.get('yearTo') and movie.get('yearTo') != movie.get('yearFrom'):
+                    years += f" - {movie.get('yearTo')}"
                 lines.append(f"Годы: {years}")
 
             director = movie.get('mainDirector')
             if director and director.get('name'):
                 lines.append(f"Режиссер: {director['name']}")
 
-            us_release = movie.get('usReleaseDate')
-            if us_release:
-                readable_date = self.__format_date(us_release)
+            if movie.get('usReleaseDate'):
+                readable_date = self.__format_date(movie['usReleaseDate'])
                 lines.append(f"Дата выхода в США: {readable_date}")
 
             return "\n".join(lines)

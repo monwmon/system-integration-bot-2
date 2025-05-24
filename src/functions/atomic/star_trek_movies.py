@@ -1,12 +1,16 @@
+"""Модуль с функцией бота для поиска фильмов Star Trek через API stapi.co."""
+
 import logging
-from typing import List
-import telebot
-import requests
-from telebot import types
-from telebot.callback_data import CallbackData
-from bot_func_abc import AtomicBotFunctionABC
 import re
 from datetime import datetime
+from typing import List
+
+import requests
+import telebot
+from telebot import types
+from telebot.callback_data import CallbackData
+
+from bot_func_abc import AtomicBotFunctionABC
 
 
 class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
@@ -26,10 +30,10 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
     bot: telebot.TeleBot
     movie_keyboard_factory: CallbackData
 
-    # Хранение данных пагинации по chat_id
     pagination_data = {}
 
     def set_handlers(self, bot: telebot.TeleBot):
+        """Установка обработчиков сообщений и коллбэков"""
         self.bot = bot
         self.movie_keyboard_factory = CallbackData('movie_action', prefix=self.commands[0])
 
@@ -75,7 +79,11 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
                 return
 
             self.pagination_data[chat_id]["page"] = page
-            self.__send_movies_page(chat_id, page, edit_message=True, message_id=call.message.message_id)
+            self.__send_movies_page(
+                chat_id, page,
+                edit_message=True,
+                message_id=call.message.message_id
+            )
             bot.answer_callback_query(call.id)
 
     def __gen_markup(self):
@@ -96,13 +104,21 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
-            movies = data.get('movies', [])
-            return movies
+            return data.get('movies', [])
         except requests.exceptions.RequestException as e:
-            logging.error(f"Star Trek API error: {e}")
+            logging.error("Star Trek API error: %s", e)
             return []
 
-    def __send_movies_page(self, chat_id: int, page: int, page_size: int = 5, edit_message: bool = False, message_id: int = None):
+    def __send_movies_page(
+        self,
+        chat_id: int,
+        page: int,
+        *,
+        page_size: int = 5,
+        edit_message: bool = False,
+        message_id: int = None
+    ):
+        """Отправка страницы фильмов"""
         movies = self.pagination_data[chat_id]["movies"]
         total = len(movies)
         start = page * page_size
@@ -112,7 +128,10 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
         text = "🎬 Фильмы Star Trek:\n\n"
         for movie in page_movies:
             director = movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'
-            text += f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. {director}\n"
+            text += (
+                f"• {movie.get('title', 'N/A')} "
+                f"({movie.get('yearFrom', 'N/A')}), реж. {director}\n"
+            )
         text += f"\nСтраница {page + 1} из {(total + page_size - 1) // page_size}"
 
         markup = types.InlineKeyboardMarkup(row_width=2)
@@ -127,17 +146,20 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
             self.bot.send_message(chat_id, text, reply_markup=markup)
 
     def get_all_movies(self) -> str:
+        """Получает и форматирует список всех фильмов Star Trek."""
         movies = self.__fetch_movies()
         if not movies:
             return "Фильмы не найдены."
 
         film_list = "\n".join([
-            f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. {movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'}"
+            f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. "
+            f"{movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'}"
             for movie in movies
         ])
         return f"🎬 Фильмы Star Trek:\n{film_list}\n\n(Всего: {len(movies)})"
 
     def get_movie_info(self, title: str) -> str:
+        """Получение подробной информации о фильме по названию."""
         try:
             title_clean = re.sub(r'\s*\(\d{4}\)\s*$', '', title).strip()
 
@@ -155,7 +177,6 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
 
             lines = [f"🎬 {movie.get('title', 'N/A')}"]
 
-            # Годы
             year_from = movie.get('yearFrom')
             year_to = movie.get('yearTo')
             if year_from or year_to:
@@ -164,36 +185,32 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
                     years += f" - {year_to}"
                 lines.append(f"Годы: {years}")
 
-            # Режиссер
             director = movie.get('mainDirector')
             if director and director.get('name'):
                 lines.append(f"Режиссер: {director['name']}")
 
-            # Дата выхода, форматируем в читаемый вид
             us_release = movie.get('usReleaseDate')
             if us_release:
                 try:
                     dt = datetime.strptime(us_release, "%Y-%m-%d")
-                    readable_date = dt.strftime("%-d %B %Y")  # например, "1 июня 1984"
-                except Exception:
+                    readable_date = dt.strftime("%-d %B %Y")
+                except ValueError:
                     readable_date = us_release
                 lines.append(f"Дата выхода в США: {readable_date}")
 
             return "\n".join(lines)
         except requests.exceptions.RequestException as e:
-            logging.error(f"Star Trek info error: {e}")
+            logging.error("Star Trek info error: %s", e)
             return "⚠️ Ошибка при получении информации о фильме."
 
     def __process_movie_input(self, message: types.Message):
+        """Обработка пользовательского ввода названия фильма"""
         try:
             movie_title = message.text.strip()
             info = self.get_movie_info(movie_title)
-            self.bot.send_message(
-                chat_id=message.chat.id,
-                text=info
-            )
+            self.bot.send_message(chat_id=message.chat.id, text=info)
         except Exception as e:
-            logging.error(f"Processing error: {e}")
+            logging.error("Processing error: %s", e)
             self.bot.send_message(
                 chat_id=message.chat.id,
                 text=f"⚠️ Ошибка обработки запроса: {str(e)}"

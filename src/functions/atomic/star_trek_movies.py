@@ -27,11 +27,8 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
     )
     state: bool = True
 
-    PAGE_SIZE = 5
-
     bot: telebot.TeleBot
     movie_keyboard_factory: CallbackData
-    pagination_data = {}
 
     def set_handlers(self, bot: telebot.TeleBot):
         """Установка обработчиков сообщений и коллбэков"""
@@ -59,8 +56,8 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
                     bot.send_message(chat_id, "Фильмы не найдены.")
                     bot.answer_callback_query(call.id)
                     return
-                self.pagination_data[chat_id] = {"movies": movies, "page": 0}
-                self.__send_movies_page(chat_id=chat_id, page=0)
+                # Отправляем весь список сразу
+                self.__send_all_movies(chat_id)
 
             elif action == 'info':
                 force_reply = types.ForceReply(selective=False)
@@ -70,25 +67,6 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
                     reply_markup=force_reply
                 )
                 bot.register_next_step_handler(msg, self.__process_movie_input)
-
-            elif action.startswith("page_"):
-                try:
-                    page = int(action.split("_")[1])
-                except ValueError:
-                    bot.answer_callback_query(call.id, "Неверный номер страницы.")
-                    return
-
-                if chat_id not in self.pagination_data:
-                    bot.answer_callback_query(call.id, "Данные устарели, повторите запрос.")
-                    return
-
-                self.pagination_data[chat_id]["page"] = page
-                self.__send_movies_page(
-                    chat_id=chat_id,
-                    page=page,
-                    edit_message=True,
-                    message_id=call.message.message_id
-                )
 
             bot.answer_callback_query(call.id)
 
@@ -115,56 +93,18 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
             logging.error("Star Trek API error: %s", e)
             return []
 
-    def __send_movies_page(
-        self,
-        chat_id: int,
-        page: int,
-        *,
-        edit_message: bool = False,
-        message_id: int = None
-    ):
-        """Отправка страницы фильмов"""
-        movies = self.pagination_data[chat_id]["movies"]
-        page_size = self.PAGE_SIZE
-        total = len(movies)
-        start = page * page_size
-        end = start + page_size
-        page_movies = movies[start:end]
-
-        text = "🎬 Фильмы Star Trek:\n\n"
-        for movie in page_movies:
-            director = movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'
-            text += (
-                f"• {movie.get('title', 'N/A')} "
-                f"({movie.get('yearFrom', 'N/A')}), реж. {director}\n"
-            )
-        text += f"\nСтраница {page + 1} из {(total + page_size - 1) // page_size}"
-
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        if page > 0:
-            back_data = self.movie_keyboard_factory.new(movie_action=f"page_{page - 1}")
-            markup.add(types.InlineKeyboardButton("⬅️ Назад", callback_data=back_data))
-        if end < total:
-            next_data = self.movie_keyboard_factory.new(movie_action=f"page_{page + 1}")
-            markup.add(types.InlineKeyboardButton("➡️ Вперёд", callback_data=next_data))
-
-        if edit_message and message_id:
-            self.bot.edit_message_text(text, chat_id=chat_id, message_id=message_id, reply_markup=markup)
-        else:
-            self.bot.send_message(chat_id, text, reply_markup=markup)
-
-    def get_all_movies(self) -> str:
-        """Получает и форматирует список всех фильмов Star Trek."""
+    def __send_all_movies(self, chat_id: int):
         movies = self.__fetch_movies()
         if not movies:
-            return "Фильмы не найдены."
+            self.bot.send_message(chat_id, "Фильмы не найдены.")
+            return
 
-        film_list = "\n".join([
-            f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. "
-            f"{movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'}"
-            for movie in movies
-        ])
-        return f"🎬 Фильмы Star Trek:\n{film_list}\n\n(Всего: {len(movies)})"
+        text = "🎬 Фильмы Star Trek:\n\n"
+        for movie in movies:
+            director = movie['mainDirector']['name'] if movie.get('mainDirector') else 'N/A'
+            text += f"• {movie.get('title', 'N/A')} ({movie.get('yearFrom', 'N/A')}), реж. {director}\n"
+
+        self.bot.send_message(chat_id, text)
 
     def __format_date(self, date_str: str) -> str:
         """Преобразует дату YYYY-MM-DD в читаемый формат."""

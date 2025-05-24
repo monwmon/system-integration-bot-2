@@ -13,7 +13,7 @@ class AtomicStarTrekBotFunction(AtomicBotFunctionABC):
     """Бот для поиска фильмов Star Trek через API stapi.co"""
 
     commands: List[str] = ["startrek", "stmovies"]
-    authors: List[str] = ["YourName"]
+    authors: List[str] = ["monwmon"]
     about: str = "Поиск фильмов Star Trek"
     description: str = (
         "Доступные команды:\n"
